@@ -13,9 +13,10 @@ class AuditlogLog(models.Model):
 
     name = fields.Char("Resource Name", size=64)
     model_id = fields.Many2one(
-        'ir.model', string=u"Model")
-    model_name = fields.Char(
-        related="model_id.model", store=True)
+        'ir.model', string=u"Model", index=True)
+    model_name = fields.Char(u'Model Name', related="model_id.name")
+    model_model = fields.Char(
+        string=u'Technical Model Name', related="model_id.model")
     res_id = fields.Integer(u"Resource ID")
     user_id = fields.Many2one(
         'res.users', string=u"User")
@@ -38,7 +39,8 @@ class AuditlogLogLine(models.Model):
     _description = "Auditlog - Log details (fields updated)"
 
     field_id = fields.Many2one(
-        'ir.model.fields', ondelete='set null', string=u"Field", required=True)
+        'ir.model.fields', ondelete='set null', string=u"Field", required=True,
+        index=True)
     log_id = fields.Many2one(
         'auditlog.log', string=u"Log", ondelete='cascade', index=True)
     old_value = fields.Text(u"Old Value")
@@ -46,15 +48,15 @@ class AuditlogLogLine(models.Model):
     old_value_text = fields.Text(u"Old value Text")
     new_value_text = fields.Text(u"New value Text")
     field_name = fields.Char(
-        string=u"Technical name", related='field_id.name', store=True)
+        u"Technical name", related='field_id.name', store=True)
     field_description = fields.Char(
-        u"Description", related='field_id.field_description')
+        u"Description", related='field_id.field_description', store=True)
 
     @api.model
     def create(self, vals):
         """ Ensure field_id is not empty on creation. """
         res = super(AuditlogLogLine, self).create(vals)
-        if not res.field_id or res.field_id is None:
+        if not res.field_id:
             raise UserError(_("No field defined to create line."))
         return res
 
@@ -62,7 +64,6 @@ class AuditlogLogLine(models.Model):
     def write(self, vals):
         """ Ensure field_id is set during write. """
         res = super(AuditlogLogLine, self).write(vals)
-        empty_field = self.filtered(lambda x: not x.field_id)
-        if empty_field:
+        if 'field_id' in vals and not vals['field_id']:
             raise UserError(_("The field 'field_id' cannot be empty."))
         return res
