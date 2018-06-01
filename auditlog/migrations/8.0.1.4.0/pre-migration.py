@@ -17,44 +17,50 @@ def migrate(cr, version):
     ALTER TABLE auditlog_log_line
     ADD COLUMN IF NOT EXISTS field_description VARCHAR
     """)
+
     logger.info("Creating indexes on auditlog_log column 'model_id' and "
                 "auditlog_log_line column 'field_id'.")
     cr.execute("""
-    CREATE INDEX auditlog_log_model_id_index ON auditlog_log (model_id);
-    CREATE INDEX auditlog_log_line_field_id_index
-        ON auditlog_log_line (field_id)
+    DO $BLOCK$
+    BEGIN
+      BEGIN
+        CREATE INDEX auditlog_log_model_id_index
+          ON auditlog_log (model_id);
+        EXCEPTION
+        WHEN duplicate_table
+          THEN RAISE NOTICE
+          'index ''auditlog_log_model_id_index'' on auditlog_log already '
+          'exists, skipping';
+      END;
+      BEGIN
+        CREATE INDEX auditlog_log_line_field_id_index
+          ON auditlog_log_line (field_id);
+        EXCEPTION
+        WHEN duplicate_table
+          THEN RAISE NOTICE
+          'index ''auditlog_log_line_field_id_index'' on auditlog_log_line '
+          'already exists, skipping';
+      END;
+    END;
+    $BLOCK$;
     """)
+
     logger.info("Preemptive fill auditlog_log columns: 'model_name' and "
                 "'model_model'.")
     cr.execute("""
     UPDATE auditlog_log al
-    SET model_name = (
-      SELECT im.name
-      FROM ir_model im
-      WHERE im.id = al.model_id
-    );
-    UPDATE auditlog_log al
-    SET model_model = (
-      SELECT im.model
-      FROM ir_model im
-      WHERE im.id = al.model_id
-    )
+    SET model_name = im.name, model_model = im.model
+    FROM ir_model im
+    WHERE im.id = al.model_id
     """)
+
     logger.info("Preemtive fill of auditlog_log_line columns: 'field_name' and"
                 " 'field_description'.")
     cr.execute("""
     UPDATE auditlog_log_line al
-    SET field_name = (
-      SELECT imf.name
-      FROM ir_model_fields imf
-      WHERE imf.id = al.field_id
-    );
-    UPDATE auditlog_log_line al
-    SET field_description = (
-      SELECT imf.field_description
-      FROM ir_model_fields imf
-      WHERE imf.id = al.field_id
-    )
+    SET field_name = imf.name, field_description = imf.field_description
+    FROM ir_model_fields imf
+    WHERE imf.id = al.field_id
     """)
     logger.info("Successfully updated auditlog_log and auditlog_log_line "
                 "tables.")

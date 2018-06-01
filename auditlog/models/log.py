@@ -14,9 +14,10 @@ class AuditlogLog(models.Model):
     name = fields.Char("Resource Name", size=64)
     model_id = fields.Many2one(
         'ir.model', string=u"Model", index=True)
-    model_name = fields.Char(u'Model Name', related="model_id.name")
+    model_name = fields.Char(
+        string=u'Model Name', related="model_id.name", store=True)
     model_model = fields.Char(
-        string=u'Technical Model Name', related="model_id.model")
+        string=u'Technical Model Name', related="model_id.model", store=True)
     res_id = fields.Integer(u"Resource ID")
     user_id = fields.Many2one(
         'res.users', string=u"User")
